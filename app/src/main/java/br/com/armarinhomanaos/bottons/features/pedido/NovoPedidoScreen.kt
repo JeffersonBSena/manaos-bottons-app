@@ -30,8 +30,9 @@ import kotlinx.coroutines.launch
 fun reais(cents: Int): String = java.text.NumberFormat.getCurrencyInstance(java.util.Locale("pt", "BR")).format(cents / 100.0).replace("\u00a0", " ")
 
 @Composable
-fun NovoPedidoScreen(aoVoltar: () -> Unit, aoCriado: (String) -> Unit) {
+fun NovoPedidoScreen(aoVoltar: () -> Unit, aoCriado: (String) -> Unit, kitId: String? = null, produtoId: Int? = null) {
     var produtos by remember { mutableStateOf<List<Produto>>(emptyList()) }
+    var kits by remember { mutableStateOf<List<br.com.armarinhomanaos.bottons.data.api.Kit>>(emptyList()) }
     var minimo by remember { mutableIntStateOf(5) }
     val qtds = remember { mutableStateMapOf<Int, Int>() }
     var nome by remember { mutableStateOf("") }
@@ -42,17 +43,29 @@ fun NovoPedidoScreen(aoVoltar: () -> Unit, aoCriado: (String) -> Unit) {
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
-        runCatching { Graph.api().produtos() }.onSuccess { produtos = it.products; minimo = it.min_units_per_order }
-            .onFailure { erro = "Não foi possível carregar os tamanhos." }
+        runCatching { Graph.api().produtos() }.onSuccess { r ->
+            produtos = r.products; minimo = r.min_units_per_order; kits = r.kits
+            // Pré-seleção vinda da Início: kit (itens do kit) ou um tamanho (quantidade mínima)
+            r.kits.firstOrNull { it.id == kitId }?.let { k -> qtds.clear(); k.items.forEach { qtds[it.product_id] = it.qty } }
+            if (produtoId != null && qtds.isEmpty()) qtds[produtoId] = r.min_units_per_order
+        }.onFailure { erro = "Não foi possível carregar os tamanhos." }
     }
 
     val unidades = qtds.values.sum()
-    val total = produtos.sumOf { (qtds[it.id] ?: 0) * it.price_cents }
+    val subtotal = produtos.sumOf { (qtds[it.id] ?: 0) * it.price_cents }
+    // Kit vale enquanto os itens forem exatamente os do kit (mesma regra do servidor)
+    val kit = kits.firstOrNull { k -> k.id == kitId && k.items.associate { it.product_id to it.qty } == qtds.filter { it.value > 0 }.toMap() }
+    val desconto = kit?.discount_cents ?: 0
+    val total = subtotal - desconto
     val foneDigitos = fone.filter { it.isDigit() }
     val valido = nome.isNotBlank() && foneDigitos.length >= 10 && unidades >= minimo
 
     Scaffold(containerColor = AppColor.Bg, topBar = { BarraTopo("Novo pedido", aoVoltar) }, bottomBar = {
         Column(Modifier.background(AppColor.Card).navigationBarsPadding().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (kit != null) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("${kit.name} · ${kit.discount_pct.toInt()}% off", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = AppColor.Green, modifier = Modifier.weight(1f))
+                Text(reais(subtotal), fontSize = 13.sp, color = AppColor.TextMuted, textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough)
+            }
             Row(Modifier.fillMaxWidth()) {
                 Text("$unidades botton${if (unidades == 1) "" else "s"}", color = AppColor.TextSecond, modifier = Modifier.weight(1f))
                 Text(reais(total), fontWeight = FontWeight.Bold, fontSize = 18.sp, color = AppColor.TextPrimary)
@@ -62,7 +75,7 @@ fun NovoPedidoScreen(aoVoltar: () -> Unit, aoCriado: (String) -> Unit) {
                 enviando = true; erro = null
                 scope.launch {
                     val body = NovoPedidoBody(nome.trim(), foneDigitos, cpf.filter { it.isDigit() }.ifBlank { null },
-                        items = qtds.filter { it.value > 0 }.map { ItemBody(it.key, it.value) })
+                        items = qtds.filter { it.value > 0 }.map { ItemBody(it.key, it.value) }, kit_id = kit?.id)
                     runCatching { Graph.api().criar(body) }
                         .onSuccess { r -> if (r.isSuccessful && r.body() != null) aoCriado(r.body()!!.number) else erro = Network.erro(r).message }
                         .onFailure { erro = "Falha de conexão: ${it.message?.take(60)}" }

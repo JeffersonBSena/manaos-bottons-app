@@ -1,10 +1,14 @@
 package br.com.armarinhomanaos.bottons.features.home
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -19,15 +23,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import br.com.armarinhomanaos.bottons.Graph
+import br.com.armarinhomanaos.bottons.R
+import br.com.armarinhomanaos.bottons.data.api.Kit
 import br.com.armarinhomanaos.bottons.data.api.Pedido
+import br.com.armarinhomanaos.bottons.data.api.Produto
+import br.com.armarinhomanaos.bottons.features.pedido.reais
 import br.com.armarinhomanaos.bottons.ui.*
 import br.com.armarinhomanaos.bottons.ui.theme.AparenciaStore
 import br.com.armarinhomanaos.bottons.ui.theme.AppColor
+import coil.compose.AsyncImage
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -40,64 +52,164 @@ fun corStatus(status: String): Color = when (status) {
     else -> AppColor.Slate
 }
 
+/**
+ * Início do stand: vitrine (tamanhos com preço, kits com desconto, inspirações) que abre o pedido
+ * já montado, e a fila de pedidos em andamento para o atendente.
+ */
 @Composable
-fun HomeScreen(aoNovoPedido: () -> Unit, aoAbrirPedido: (String) -> Unit, aoConfigurar: () -> Unit) {
+fun HomeScreen(aoNovoPedido: () -> Unit, aoKit: (String) -> Unit, aoTamanho: (Int) -> Unit, aoAbrirPedido: (String) -> Unit, aoConfigurar: () -> Unit) {
     val ctx = LocalContext.current
     var pedidos by remember { mutableStateOf<List<Pedido>>(emptyList()) }
+    var produtos by remember { mutableStateOf<List<Produto>>(emptyList()) }
+    var kits by remember { mutableStateOf<List<Kit>>(emptyList()) }
+    var inspiracoes by remember { mutableStateOf<List<String>>(emptyList()) }
+    var minimo by remember { mutableIntStateOf(5) }
     var erro by remember { mutableStateOf<String?>(null) }
     var carregando by remember { mutableStateOf(true) }
     val scope = rememberCoroutineScope()
 
     suspend fun carregar() {
-        runCatching { Graph.api().pedidos() }
-            .onSuccess { pedidos = it; erro = null }
-            .onFailure { erro = "Sem conexão com o servidor" }
+        runCatching { Graph.api().pedidos() }.onSuccess { pedidos = it; erro = null }.onFailure { erro = "Sem conexão com o servidor" }
         carregando = false
     }
-    LaunchedEffect(Unit) { while (true) { carregar(); delay(8000) } }
+    LaunchedEffect(Unit) {
+        runCatching { Graph.api().produtos() }.onSuccess { produtos = it.products; kits = it.kits; inspiracoes = it.inspiracoes; minimo = it.min_units_per_order }
+        while (true) { carregar(); delay(8000) }
+    }
 
     Scaffold(containerColor = AppColor.Bg, topBar = {
         BarraTopo("Bottons Manaós", acoes = {
-            IconButton(onClick = { AparenciaStore.proxima(ctx) }) { Icon(Icons.Filled.DarkMode, "Aparência: ${AparenciaStore.atual.titulo}") }
+            IconButton(onClick = { AparenciaStore.proxima(ctx) }) { Icon(Icons.Filled.DarkMode, "Aparência") }
             IconButton(onClick = { scope.launch { carregar() } }) { Icon(Icons.Filled.Refresh, "Atualizar") }
             IconButton(onClick = aoConfigurar) { Icon(Icons.Filled.Settings, "Configuração") }
         })
     }) { pad ->
-        LazyColumn(Modifier.padding(pad).fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        LazyColumn(Modifier.padding(pad).fillMaxSize(), contentPadding = PaddingValues(vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            // Hero
             item {
-                // Hero (gradiente da marca) + CTA
                 Column(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp))
+                    Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(20.dp))
                         .background(Brush.linearGradient(listOf(AppColor.Navy, AppColor.PrimaryDark))).padding(20.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(br.com.armarinhomanaos.bottons.R.drawable.logo_manaos), "Manaós", Modifier.size(96.dp))
+                        Image(painterResource(R.drawable.logo_manaos), "Manaós", Modifier.size(96.dp))
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text("Seu botton na hora ✨", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                            Text("Escolha o tamanho, mande a foto e pague no Pix. Pronto em minutos.", fontSize = 14.sp, color = Color.White.copy(alpha = 0.85f))
+                            Text("Escolha o tamanho ou um kit, mande a foto e pague no Pix. Pronto em minutos.", fontSize = 14.sp, color = Color.White.copy(alpha = 0.85f))
                         }
                     }
-                    Button(onClick = aoNovoPedido, colors = ButtonDefaults.buttonColors(containerColor = AppColor.Orange, contentColor = AppColor.Navy), shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth().height(52.dp)) { Icon(Icons.Filled.Add, null); Spacer(Modifier.width(8.dp)); Text("Novo pedido", fontSize = 16.sp, fontWeight = FontWeight.SemiBold) }
+                    Button(onClick = aoNovoPedido, colors = ButtonDefaults.buttonColors(containerColor = AppColor.Orange, contentColor = AppColor.Navy), shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth().height(52.dp)) {
+                        Icon(Icons.Filled.Add, null); Spacer(Modifier.width(8.dp)); Text("Novo pedido", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                    }
                 }
             }
-            item { TituloSecao("Pedidos em andamento", direita = if (pedidos.isNotEmpty()) "${pedidos.size}" else null) }
-            if (carregando) item { Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = AppColor.Primary) } }
-            else if (erro != null) item { CartaoSecao { Text(erro!!, color = AppColor.Red, modifier = Modifier.padding(16.dp)) } }
-            else if (pedidos.isEmpty()) item { CartaoSecao { Text("Nenhum pedido aberto. Toque em Novo pedido.", color = AppColor.TextSecond, modifier = Modifier.padding(16.dp)) } }
-            else item {
-                CartaoSecao {
-                    pedidos.forEachIndexed { i, p ->
-                        if (i > 0) DivisorLinha()
-                        LinhaFarol(corStatus(p.status), p.customer.name ?: p.number, "${p.number} · ${p.units} bottons · ${p.total}",
-                            onClick = { aoAbrirPedido(p.number) }) {
-                            Pilula(p.status_label, corStatus(p.status))
-                            Icon(Icons.Filled.ChevronRight, null, tint = AppColor.TextMuted)
+
+            // Tamanhos e preços
+            if (produtos.isNotEmpty()) {
+                item { TituloSecao("Tamanhos e preços", Modifier.padding(horizontal = 16.dp), direita = "toque para pedir · mín. $minimo") }
+                item {
+                    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        items(produtos) { p -> CartaoTamanho(p, inspiracoes.getOrNull(produtos.indexOf(p) % maxOf(1, inspiracoes.size))) { aoTamanho(p.id) } }
+                    }
+                }
+            }
+
+            // Kits
+            if (kits.isNotEmpty()) {
+                item { TituloSecao("Kits prontos", Modifier.padding(horizontal = 16.dp), direita = "com desconto") }
+                item {
+                    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        items(kits) { k -> CartaoKit(k) { aoKit(k.id) } }
+                    }
+                }
+            }
+
+            // Inspirações
+            if (inspiracoes.isNotEmpty()) {
+                item { TituloSecao("Inspire-se", Modifier.padding(horizontal = 16.dp), direita = "sua foto, seu time, seu ídolo") }
+                item {
+                    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        items(inspiracoes) { url ->
+                            Box(Modifier.size(112.dp).clip(CircleShape).background(Color.White).border(3.dp, AppColor.Primary, CircleShape).clickable { aoNovoPedido() }) {
+                                AsyncImage(url, null, Modifier.fillMaxSize().padding(4.dp).clip(CircleShape), contentScale = ContentScale.Crop)
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Fila do atendente
+            item { TituloSecao("Pedidos em andamento", Modifier.padding(horizontal = 16.dp), direita = if (pedidos.isNotEmpty()) "${pedidos.size}" else null) }
+            item {
+                Box(Modifier.padding(horizontal = 16.dp)) {
+                    when {
+                        carregando -> Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = AppColor.Primary) }
+                        erro != null -> CartaoSecao { Text(erro!!, color = AppColor.Red, modifier = Modifier.padding(16.dp)) }
+                        pedidos.isEmpty() -> CartaoSecao { Text("Nenhum pedido aberto. Toque em um tamanho, um kit ou em Novo pedido.", color = AppColor.TextSecond, modifier = Modifier.padding(16.dp)) }
+                        else -> CartaoSecao {
+                            pedidos.forEachIndexed { i, p ->
+                                if (i > 0) DivisorLinha()
+                                LinhaFarol(corStatus(p.status), p.customer.name ?: p.number, "${p.number} · ${p.units} bottons · ${p.total}${p.kit?.let { " · $it" } ?: ""}",
+                                    onClick = { aoAbrirPedido(p.number) }) {
+                                    Pilula(p.status_label, corStatus(p.status))
+                                    Icon(Icons.Filled.ChevronRight, null, tint = AppColor.TextMuted)
+                                }
+                            }
                         }
                     }
                 }
             }
             item { RodapeSecao("Produção e entrega são controladas no painel web (admin).") }
         }
+    }
+}
+
+/** Cartão de tamanho: botton proporcional (com uma arte de exemplo), mm e preço unitário. */
+@Composable
+private fun CartaoTamanho(p: Produto, arteUrl: String?, onClick: () -> Unit) {
+    val mm = p.spec.botton_mm
+    val diam = (56 + mm * 1.6f).dp
+    Column(
+        Modifier.width(150.dp).clip(RoundedCornerShape(16.dp)).background(AppColor.Card).border(1.dp, AppColor.Border, RoundedCornerShape(16.dp))
+            .clickable { onClick() }.padding(14.dp),
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Box(Modifier.height(160.dp).fillMaxWidth(), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(diam).clip(CircleShape).background(AppColor.Primary), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(diam * 0.86f).clip(CircleShape).background(Color.White), contentAlignment = Alignment.Center) {
+                    if (arteUrl != null) AsyncImage(arteUrl, null, Modifier.size(diam * 0.8f).clip(CircleShape), contentScale = ContentScale.Crop)
+                    else Box(Modifier.size(diam * 0.6f).clip(CircleShape).background(AppColor.Orange))
+                }
+            }
+        }
+        Text("$mm mm", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = AppColor.TextPrimary)
+        Text("${p.price} cada", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = AppColor.Primary)
+        Text("corte ${p.spec.corte_mm} mm", fontSize = 11.sp, color = AppColor.TextMuted)
+    }
+}
+
+/** Cartão de kit: nome, descrição, itens, preço com o "de/por". */
+@Composable
+private fun CartaoKit(k: Kit, onClick: () -> Unit) {
+    Column(
+        Modifier.width(240.dp).clip(RoundedCornerShape(16.dp)).background(AppColor.Card).border(1.dp, AppColor.Border, RoundedCornerShape(16.dp))
+            .clickable { onClick() }.padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(k.name, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = AppColor.TextPrimary, modifier = Modifier.weight(1f))
+            if (k.discount_pct > 0) Pilula("-${k.discount_pct.toInt()}%", AppColor.Green)
+        }
+        Text(k.description, fontSize = 13.sp, color = AppColor.TextSecond, minLines = 2, maxLines = 2)
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            k.items.forEach { Text("• ${it.qty}× ${it.name}", fontSize = 13.sp, color = AppColor.TextPrimary) }
+        }
+        Spacer(Modifier.height(2.dp))
+        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (k.discount_cents > 0) Text(reais(k.subtotal_cents), fontSize = 13.sp, color = AppColor.TextMuted, textDecoration = TextDecoration.LineThrough)
+            Text(k.price, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = AppColor.Primary)
+        }
+        Text("${k.units} bottons · ${reais(k.price_cents / maxOf(1, k.units))} cada", fontSize = 12.sp, color = AppColor.TextSecond)
     }
 }

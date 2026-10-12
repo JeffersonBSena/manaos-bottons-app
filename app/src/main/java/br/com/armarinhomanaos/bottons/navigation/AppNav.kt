@@ -49,11 +49,26 @@ fun AppNav() {
             composable("home") {
                 HomeScreen(
                     aoNovoPedido = { nav.navigate("novo") },
+                    aoKit = { id -> nav.navigate("novo?kit=$id") },
+                    aoTamanho = { id -> nav.navigate("novo?produto=$id") },
                     aoAbrirPedido = { n -> nav.navigate("pedido/$n") },
                     aoConfigurar = { nav.navigate("setup") },
                 )
             }
-            composable("novo") { NovoPedidoScreen(aoVoltar = { nav.popBackStack() }, aoCriado = { n -> nav.navigate("pedido/$n") { popUpTo("home") } }) }
+            composable(
+                "novo?kit={kit}&produto={produto}",
+                arguments = listOf(
+                    androidx.navigation.navArgument("kit") { nullable = true; defaultValue = null },
+                    androidx.navigation.navArgument("produto") { nullable = true; defaultValue = null },
+                ),
+            ) { back ->
+                NovoPedidoScreen(
+                    kitId = back.arguments?.getString("kit"),
+                    produtoId = back.arguments?.getString("produto")?.toIntOrNull(),
+                    aoVoltar = { nav.popBackStack() },
+                    aoCriado = { n -> nav.navigate("pedido/$n") { popUpTo("home") } },
+                )
+            }
             composable("pedido/{n}") { back ->
                 val n = back.arguments?.getString("n").orEmpty()
                 PedidoScreen(numero = n, aoVoltar = { nav.popBackStack("home", inclusive = false) }, aoPix = { nav.navigate("pix/$n") })
