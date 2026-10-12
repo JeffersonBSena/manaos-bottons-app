@@ -67,12 +67,12 @@ fun AppNav() {
                     kitId = back.arguments?.getString("kit"),
                     produtoId = back.arguments?.getString("produto")?.toIntOrNull(),
                     aoVoltar = { nav.popBackStack() },
-                    aoCriado = { n -> nav.navigate("pedido/$n") { popUpTo("home") } },
+                    aoCriado = { n -> nav.navigate("pedido/$n?novo=1") { popUpTo("home") } },
                 )
             }
-            composable("pedido/{n}") { back ->
+            composable("pedido/{n}?novo={novo}", arguments = listOf(androidx.navigation.navArgument("novo") { nullable = true; defaultValue = null })) { back ->
                 val n = back.arguments?.getString("n").orEmpty()
-                PedidoScreen(numero = n, aoVoltar = { nav.popBackStack("home", inclusive = false) }, aoPix = { nav.navigate("pix/$n") })
+                PedidoScreen(numero = n, abrirQr = back.arguments?.getString("novo") == "1", aoVoltar = { nav.popBackStack("home", inclusive = false) }, aoPix = { nav.navigate("pix/$n") })
             }
             composable("pix/{n}") { back ->
                 val n = back.arguments?.getString("n").orEmpty()

@@ -1,10 +1,12 @@
 package br.com.armarinhomanaos.bottons.features.pedido
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CenterFocusStrong
@@ -48,7 +50,7 @@ import coil.compose.AsyncImage
 
 
 @Composable
-fun PedidoScreen(numero: String, aoVoltar: () -> Unit, aoPix: () -> Unit) {
+fun PedidoScreen(numero: String, aoVoltar: () -> Unit, aoPix: () -> Unit, abrirQr: Boolean = false) {
     val vm: PedidoViewModel = viewModel(key = numero, factory = PedidoVmFactory(numero))
     val s by vm.s.collectAsState()
     val ctx = LocalContext.current
@@ -57,6 +59,7 @@ fun PedidoScreen(numero: String, aoVoltar: () -> Unit, aoPix: () -> Unit) {
     var itemAjuste by remember { mutableStateOf<Item?>(null) }
     var confirmaManual by remember { mutableStateOf(false) }
     var confirmaCancelar by remember { mutableStateOf(false) }
+    var mostrarQr by remember { mutableStateOf(abrirQr) }
     var cpf by remember { mutableStateOf("") }
     val p = s.pedido
 
@@ -72,6 +75,7 @@ fun PedidoScreen(numero: String, aoVoltar: () -> Unit, aoPix: () -> Unit) {
         confirmButton = { TextButton(enabled = cpf.length == 11, onClick = { vm.aprovar(cpf, aoPix) }) { Text("Gerar Pix") } },
         dismissButton = { TextButton(onClick = vm::fecharCpf) { Text("Cancelar") } },
     )
+    if (mostrarQr && p?.upload_url != null) QrModal(p, aoFechar = { mostrarQr = false })
     if (confirmaManual) AlertDialog(
         onDismissRequest = { confirmaManual = false }, title = { Text("Pagou fora do Pix?") },
         text = { Text("Confirme como o cliente pagou. O pedido entra em produção na hora.") },
@@ -114,18 +118,18 @@ fun PedidoScreen(numero: String, aoVoltar: () -> Unit, aoPix: () -> Unit) {
             }
 
             if (!p.pago && p.upload_url != null) {
-                TituloSecao("Foto pelo celular do cliente")
+                TituloSecao("Passo 1 · Mande suas fotos")
                 CartaoSecao {
-                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        QrImagem(p.upload_url, 150.dp)
-                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text("Aponte a câmera do celular", fontWeight = FontWeight.SemiBold, color = AppColor.TextPrimary)
-                            Text("Abre uma página para escolher a foto da galeria. Sem instalar nada.", fontSize = 13.sp, color = AppColor.TextSecond)
-                            Text("Código: ${p.art_code}", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = AppColor.Primary)
-                            Text("O link também foi enviado no WhatsApp.", fontSize = 12.sp, color = AppColor.TextMuted)
+                    Row(Modifier.clickable { mostrarQr = true }.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        QrImagem(p.upload_url, 120.dp)
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("Escaneie com o seu celular e escolha as fotos", fontWeight = FontWeight.SemiBold, fontSize = 16.sp, color = AppColor.TextPrimary)
+                            Text("Uma foto para cada botton. Não precisa centralizar, recortar nem se preocupar com a resolução: o app faz isso sozinho depois do envio.", fontSize = 13.sp, color = AppColor.TextSecond)
+                            Text("Toque para ampliar o QR", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = AppColor.Primary)
                         }
                     }
                 }
+                TituloSecao("Passo 2 · Confira e aprove", direita = "o atendente ajuda aqui")
             }
 
             val semFoto = p.items.count { it.art == null }
@@ -180,7 +184,7 @@ private fun LinhaItem(item: Item, p: Pedido, rotulo: String, outrosSemFoto: Int,
                 }
                 if (art?.pronta == true) TextButton(onClick = aoAjustar, contentPadding = PaddingValues(0.dp)) {
                     Icon(Icons.Filled.Tune, null, Modifier.size(16.dp), tint = AppColor.Primary); Spacer(Modifier.width(6.dp))
-                    Text("Não ficou centralizado? Ajuste aqui", color = AppColor.Primary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Quer aproximar? Ajustar zoom", color = AppColor.Primary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -188,60 +192,38 @@ private fun LinhaItem(item: Item, p: Pedido, rotulo: String, outrosSemFoto: Int,
 }
 
 /**
- * Ajuste ao vivo: desenha o original (1200 px, vindo do servidor) com a MESMA regra do ArtRenderer
- * (cover × zoom, deslocamento em fração do raio de corte, rotação horária) e guias de corte/borda/área segura.
- * Setas e botões mudam os parâmetros na hora; "Aplicar" manda ao servidor, que regera preview e print.
+ * Ajuste ao vivo: o enquadramento é automático (centralizado, recorte circular no tamanho exato do botton).
+ * A única escolha do cliente é o zoom. O preview replica a regra do ArtRenderer (cover × zoom).
  */
 @Composable
 private fun AjusteDialog(item: Item, vm: PedidoViewModel, ocupado: Boolean, aoFechar: () -> Unit, aoAplicar: (Params) -> Unit) {
     val ini = item.art?.params ?: Params()
     var zoom by remember { mutableFloatStateOf(ini.zoom) }
-    var x by remember { mutableFloatStateOf(ini.x) }
-    var y by remember { mutableFloatStateOf(ini.y) }
-    var rot by remember { mutableFloatStateOf(ini.rotation) }
     var bmp by remember { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
     var falhou by remember { mutableStateOf(false) }
     LaunchedEffect(item.id) { bmp = vm.carregarOriginal(item)?.asImageBitmap(); if (bmp == null) falhou = true }
     val spec = item.spec
-    val passo = 0.06f
 
     AlertDialog(
         onDismissRequest = aoFechar,
-        title = { Text("Ajuste a foto · ${item.name}") },
+        title = { Text("Zoom da foto · ${item.name}") },
         text = {
-            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Box(Modifier.size(300.dp), contentAlignment = Alignment.Center) {
                     if (bmp == null && !falhou) CircularProgressIndicator(color = AppColor.Primary)
-                    else PreviewAoVivo(bmp, Params(zoom, x, y, rot), spec, 300.dp)
+                    else PreviewAoVivo(bmp, Params(zoom, 0f, 0f, 0f), spec, 300.dp)
                 }
-                Text("Vermelho = borda do botton · tracejado = área segura", fontSize = 12.sp, color = AppColor.TextSecond)
-                // D-pad
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        BotaoSeta(Icons.Filled.KeyboardArrowUp, "cima") { y -= passo }
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            BotaoSeta(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "esquerda") { x -= passo }
-                            FilledTonalIconButton(onClick = { x = 0f; y = 0f; zoom = 1f; rot = 0f }, modifier = Modifier.size(52.dp), colors = IconButtonDefaults.filledTonalIconButtonColors(containerColor = AppColor.GraySoft)) { Icon(Icons.Filled.CenterFocusStrong, "centralizar", tint = AppColor.TextPrimary) }
-                            BotaoSeta(Icons.AutoMirrored.Filled.KeyboardArrowRight, "direita") { x += passo }
-                        }
-                        BotaoSeta(Icons.Filled.KeyboardArrowDown, "baixo") { y += passo }
-                    }
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                            BotaoSeta(Icons.Filled.ZoomOut, "menos zoom") { zoom = (zoom - 0.1f).coerceAtLeast(1f) }
-                            Text("${"%.1f".format(zoom)}×", fontSize = 13.sp, color = AppColor.TextSecond, modifier = Modifier.width(40.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                            BotaoSeta(Icons.Filled.ZoomIn, "mais zoom") { zoom = (zoom + 0.1f).coerceAtMost(4f) }
-                        }
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                            BotaoSeta(Icons.Filled.RotateLeft, "girar à esquerda") { rot -= 5f }
-                            Text("${rot.toInt()}°", fontSize = 13.sp, color = AppColor.TextSecond, modifier = Modifier.width(40.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                            BotaoSeta(Icons.Filled.RotateRight, "girar à direita") { rot += 5f }
-                        }
-                    }
+                Text("O recorte circular e a centralização são automáticos. Só escolha o quanto aproximar.", fontSize = 13.sp, color = AppColor.TextSecond, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    BotaoSeta(Icons.Filled.ZoomOut, "menos zoom") { zoom = (zoom - 0.1f).coerceAtLeast(1f) }
+                    Text("${"%.1f".format(zoom)}×", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = AppColor.TextPrimary, modifier = Modifier.width(56.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    BotaoSeta(Icons.Filled.ZoomIn, "mais zoom") { zoom = (zoom + 0.1f).coerceAtMost(3f) }
                 }
+                Slider(value = zoom, onValueChange = { zoom = it }, valueRange = 1f..3f, colors = SliderDefaults.colors(thumbColor = AppColor.Primary, activeTrackColor = AppColor.Primary), modifier = Modifier.fillMaxWidth())
+                TextButton(onClick = { zoom = 1f }) { Text("Voltar ao automático (1,0×)") }
             }
         },
-        confirmButton = { Button(enabled = !ocupado, onClick = { aoAplicar(Params(zoom, x.coerceIn(-1f, 1f), y.coerceIn(-1f, 1f), rot)) }, colors = ButtonDefaults.buttonColors(containerColor = AppColor.Primary)) { Text("Aplicar") } },
+        confirmButton = { Button(enabled = !ocupado, onClick = { aoAplicar(Params(zoom, 0f, 0f, 0f)) }, colors = ButtonDefaults.buttonColors(containerColor = AppColor.Primary)) { Text("Aplicar") } },
         dismissButton = { TextButton(onClick = aoFechar) { Text("Cancelar") } },
     )
 }
@@ -274,5 +256,37 @@ private fun PreviewAoVivo(bmp: androidx.compose.ui.graphics.ImageBitmap?, p: Par
         drawCircle(Color(0xFF808080), radius = c - 1f, style = androidx.compose.ui.graphics.drawscope.Stroke(2f))
         drawCircle(AppColor.Primary, radius = rb, style = androidx.compose.ui.graphics.drawscope.Stroke(4f))
         drawCircle(Color.White, radius = rs, style = androidx.compose.ui.graphics.drawscope.Stroke(2f, pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(12f, 10f))))
+    }
+}
+
+/** Modal em tela cheia do QR: o passo do cliente é só mandar as fotos; o resto é automático. */
+@Composable
+private fun QrModal(p: Pedido, aoFechar: () -> Unit) {
+    androidx.compose.ui.window.Dialog(onDismissRequest = aoFechar, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+        Column(
+            Modifier.fillMaxWidth(0.9f).clip(RoundedCornerShape(24.dp)).background(AppColor.Card).padding(28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Pilula("PASSO 1 DE 3", AppColor.Primary)
+            Text("Mande suas fotos pelo celular", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = AppColor.TextPrimary, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            QrImagem(p.upload_url!!, 340.dp)
+            Text("Código: ${p.art_code}", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 22.sp, color = AppColor.Primary)
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                PassoLinha("1", "Abra a câmera do celular e aponte para o QR.")
+                PassoLinha("2", "Toque em \"Escolher foto\" em cada botton e pegue da sua galeria. Pode ser a mesma foto ou uma diferente em cada.")
+                PassoLinha("3", "Pronto! O app centraliza, recorta em círculo no tamanho certo e confere a resolução sozinho.")
+            }
+            Text("Nada de ajustar enquadramento: isso é automático. Se quiser, o atendente aproxima o zoom depois.", fontSize = 13.sp, color = AppColor.TextSecond, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            Text("O link também chegou no seu WhatsApp.", fontSize = 12.sp, color = AppColor.TextMuted)
+            BotaoPrimario("Entendi", aoFechar)
+        }
+    }
+}
+
+@Composable
+private fun PassoLinha(n: String, texto: String) {
+    Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Box(Modifier.size(28.dp).clip(CircleShape).background(AppColor.Primary), contentAlignment = Alignment.Center) { Text(n, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp) }
+        Text(texto, fontSize = 15.sp, color = AppColor.TextPrimary, modifier = Modifier.weight(1f))
     }
 }
