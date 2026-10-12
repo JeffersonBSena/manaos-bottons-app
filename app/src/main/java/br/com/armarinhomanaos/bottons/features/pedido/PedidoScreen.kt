@@ -213,7 +213,7 @@ private fun AjusteDialog(item: Item, vm: PedidoViewModel, ocupado: Boolean, aoFe
                     if (bmp == null && !falhou) CircularProgressIndicator(color = AppColor.Primary)
                     else PreviewAoVivo(bmp, Params(zoom, 0f, 0f, 0f), spec, 300.dp)
                 }
-                Text("O recorte circular e a centralização são automáticos. Só escolha o quanto aproximar.", fontSize = 13.sp, color = AppColor.TextSecond, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                Text("A foto inteira é encaixada e centralizada no botton, sem cortar. O zoom aproxima a partir daí.", fontSize = 13.sp, color = AppColor.TextSecond, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                     BotaoSeta(Icons.Filled.ZoomOut, "menos zoom") { zoom = (zoom - 0.1f).coerceAtLeast(1f) }
                     Text("${"%.1f".format(zoom)}×", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = AppColor.TextPrimary, modifier = Modifier.width(56.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
@@ -237,28 +237,27 @@ private fun BotaoSeta(icone: androidx.compose.ui.graphics.vector.ImageVector, de
 private fun PreviewAoVivo(bmp: androidx.compose.ui.graphics.ImageBitmap?, p: Params, spec: br.com.armarinhomanaos.bottons.data.api.Spec?, tam: androidx.compose.ui.unit.Dp) {
     androidx.compose.foundation.Canvas(Modifier.size(tam).clip(CircleShape).background(Color.White)) {
         val n = size.minDimension; val c = n / 2f
-        if (bmp != null) {
-            val w = bmp.width; val h = bmp.height
-            val escala = n / minOf(w, h) * p.zoom
-            val dw = (w * escala).toInt(); val dh = (h * escala).toInt()
-            withTransform({
-                translate(c + p.x * c, c + p.y * c)
-                rotate(p.rotation, pivot = androidx.compose.ui.geometry.Offset.Zero)
-            }) {
-                drawImage(bmp, dstOffset = androidx.compose.ui.unit.IntOffset(-dw / 2, -dh / 2), dstSize = androidx.compose.ui.unit.IntSize(dw, dh))
-            }
-        }
         val corte = spec?.corte_mm?.takeIf { it > 0 } ?: 57
         val rb = c * (spec?.botton_mm ?: 44) / corte.toFloat()
         val rs = c * (spec?.seguro_mm ?: 40) / corte.toFloat()
-        // esmaece fora do botton
+        if (bmp != null) {
+            val w = bmp.width; val h = bmp.height
+            // fundo: foto em "cover" escurecida (o servidor desfoca; aqui só esmaece)
+            val cs = n / minOf(w, h) * 1.08f
+            val cw = (w * cs).toInt(); val ch = (h * cs).toInt()
+            drawImage(bmp, dstOffset = androidx.compose.ui.unit.IntOffset(((n - cw) / 2).toInt(), ((n - ch) / 2).toInt()), dstSize = androidx.compose.ui.unit.IntSize(cw, ch), alpha = 0.35f)
+            // foto inteira: diagonal = 96% do diâmetro do botton, centralizada (mesma regra do servidor)
+            val diag = kotlin.math.hypot(w.toFloat(), h.toFloat())
+            val escala = (2f * rb * 0.96f) / diag * p.zoom
+            val dw = (w * escala).toInt(); val dh = (h * escala).toInt()
+            drawImage(bmp, dstOffset = androidx.compose.ui.unit.IntOffset((c - dw / 2f).toInt(), (c - dh / 2f).toInt()), dstSize = androidx.compose.ui.unit.IntSize(dw, dh))
+        }
         drawCircle(Color.White.copy(alpha = 0.45f), radius = c, style = androidx.compose.ui.graphics.drawscope.Stroke(width = (c - rb) * 2f))
         drawCircle(Color(0xFF808080), radius = c - 1f, style = androidx.compose.ui.graphics.drawscope.Stroke(2f))
         drawCircle(AppColor.Primary, radius = rb, style = androidx.compose.ui.graphics.drawscope.Stroke(4f))
         drawCircle(Color.White, radius = rs, style = androidx.compose.ui.graphics.drawscope.Stroke(2f, pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(12f, 10f))))
     }
 }
-
 /** Modal em tela cheia do QR: o passo do cliente é só mandar as fotos; o resto é automático. */
 @Composable
 private fun QrModal(p: Pedido, aoFechar: () -> Unit) {
