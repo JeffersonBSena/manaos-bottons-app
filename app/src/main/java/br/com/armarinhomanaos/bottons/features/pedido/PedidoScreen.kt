@@ -40,14 +40,15 @@ fun PedidoScreen(numero: String, aoVoltar: () -> Unit, aoPix: () -> Unit) {
     val vm: PedidoViewModel = viewModel(key = numero, factory = PedidoVmFactory(numero))
     val s by vm.s.collectAsState()
     val ctx = LocalContext.current
-    var itemFoto by remember { mutableStateOf<Item?>(null) }
+    var itemFoto by remember { mutableStateOf<Item?>(null) }      // controla o diálogo
+    var itemAlvo by remember { mutableStateOf<Item?>(null) }      // quem recebe a foto (sobrevive ao fechar do diálogo)
     var itemAjuste by remember { mutableStateOf<Item?>(null) }
     var confirmaManual by remember { mutableStateOf(false) }
     var confirmaCancelar by remember { mutableStateOf(false) }
     var cpf by remember { mutableStateOf("") }
     val p = s.pedido
 
-    SeletorFotoDialog(visivel = itemFoto != null, aoFechar = { itemFoto = null }, aoEscolher = { uri -> itemFoto?.let { vm.enviarArte(ctx, it, uri) }; itemFoto = null })
+    SeletorFotoDialog(visivel = itemFoto != null, aoFechar = { itemFoto = null }, aoEscolher = { uri -> itemAlvo?.let { vm.enviarArte(ctx, it, uri) } })
     itemAjuste?.let { item -> AjusteDialog(item, ocupado = s.ocupado, aoFechar = { itemAjuste = null }, aoAplicar = { vm.ajustar(item, it); itemAjuste = null }) }
 
     if (s.pedirCpf) AlertDialog(
@@ -73,11 +74,11 @@ fun PedidoScreen(numero: String, aoVoltar: () -> Unit, aoPix: () -> Unit) {
     s.erro?.let { e -> AlertDialog(onDismissRequest = vm::limparErro, title = { Text("Ops") }, text = { Text(e) }, confirmButton = { TextButton(onClick = vm::limparErro) { Text("OK") } }) }
 
     Scaffold(containerColor = AppColor.Bg, topBar = { BarraTopo(p?.number ?: "Pedido", aoVoltar) }, bottomBar = {
-        if (p != null) Column(Modifier.background(AppColor.Card).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (p != null) Column(Modifier.fillMaxWidth().background(AppColor.Card).navigationBarsPadding().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             when {
                 p.pago -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Icon(Icons.Filled.CheckCircle, null, tint = AppColor.Green, modifier = Modifier.size(28.dp))
-                    Column { Text("Pago · ${p.status_label}", fontWeight = FontWeight.Bold, color = AppColor.TextPrimary); Text("Acompanhe a produção no painel.", fontSize = 13.sp, color = AppColor.TextSecond) }
+                    Column { Text(if (p.status == "paid") "Pago — entrou em produção" else "Pago · ${p.status_label}", fontWeight = FontWeight.Bold, color = AppColor.TextPrimary); Text("Acompanhe a produção no painel.", fontSize = 13.sp, color = AppColor.TextSecond) }
                 }
                 p.aguardandoPix -> BotaoPrimario("Mostrar Pix · ${p.total}", aoPix)
                 p.emAprovacao -> {
@@ -119,7 +120,7 @@ fun PedidoScreen(numero: String, aoVoltar: () -> Unit, aoPix: () -> Unit) {
             CartaoSecao {
                 p.items.forEachIndexed { i, item ->
                     if (i > 0) DivisorLinha()
-                    LinhaItem(item, p, enviando = s.enviandoItem == item.id, aoFoto = { itemFoto = item }, aoAjustar = { itemAjuste = item })
+                    LinhaItem(item, p, enviando = s.enviandoItem == item.id, aoFoto = { itemAlvo = item; itemFoto = item }, aoAjustar = { itemAjuste = item })
                 }
             }
             RodapeSecao("O círculo rosa é a borda do botton; o que está fora dele vira a dobra. Mantenha rostos dentro da linha tracejada.")

@@ -31,7 +31,8 @@ object Imagem {
 
     private fun comprimir(ctx: Context, uri: Uri, maxLado: Int): ByteArray? {
         val limites = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        ctx.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, limites) } ?: return null
+        // inJustDecodeBounds devolve null por definição: o que importa é conseguir abrir o stream
+        ctx.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, limites); true } ?: return null
         val opts = BitmapFactory.Options().apply { inSampleSize = inSample(limites.outWidth, limites.outHeight, maxLado) }
         val original = ctx.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, opts) } ?: return null
         val rot = orientar(ctx, uri, original)

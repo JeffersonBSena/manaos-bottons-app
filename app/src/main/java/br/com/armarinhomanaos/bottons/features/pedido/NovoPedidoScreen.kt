@@ -27,7 +27,7 @@ import br.com.armarinhomanaos.bottons.ui.*
 import br.com.armarinhomanaos.bottons.ui.theme.AppColor
 import kotlinx.coroutines.launch
 
-fun reais(cents: Int): String = "R$ " + String.format("%,.2f", cents / 100.0).replace(',', 'X').replace('.', ',').replace('X', '.')
+fun reais(cents: Int): String = java.text.NumberFormat.getCurrencyInstance(java.util.Locale("pt", "BR")).format(cents / 100.0).replace("\u00a0", " ")
 
 @Composable
 fun NovoPedidoScreen(aoVoltar: () -> Unit, aoCriado: (String) -> Unit) {
@@ -52,7 +52,7 @@ fun NovoPedidoScreen(aoVoltar: () -> Unit, aoCriado: (String) -> Unit) {
     val valido = nome.isNotBlank() && foneDigitos.length >= 10 && unidades >= minimo
 
     Scaffold(containerColor = AppColor.Bg, topBar = { BarraTopo("Novo pedido", aoVoltar) }, bottomBar = {
-        Column(Modifier.background(AppColor.Card).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.background(AppColor.Card).navigationBarsPadding().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth()) {
                 Text("$unidades botton${if (unidades == 1) "" else "s"}", color = AppColor.TextSecond, modifier = Modifier.weight(1f))
                 Text(reais(total), fontWeight = FontWeight.Bold, fontSize = 18.sp, color = AppColor.TextPrimary)
