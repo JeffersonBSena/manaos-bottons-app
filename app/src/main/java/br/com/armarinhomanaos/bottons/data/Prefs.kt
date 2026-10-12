@@ -29,8 +29,19 @@ class Prefs(private val ctx: Context) {
 
     val configurado: Boolean get() = !token.isNullOrBlank()
 
+    /** Vídeo da tela de descanso (mp4 público no servidor; troca sem recompilar). */
+    var videoUrl: String
+        get() = simples.getString("video_url", VIDEO_PADRAO) ?: VIDEO_PADRAO
+        set(v) = simples.edit().putString("video_url", v.trim()).apply()
+
+    /** Segundos sem toque na Início até a tela de descanso. 0 = desligada. */
+    var descansoSegundos: Int
+        get() = simples.getInt("descanso_s", 90)
+        set(v) = simples.edit().putInt("descanso_s", v.coerceIn(0, 3600)).apply()
+
     companion object {
         const val URL_PADRAO = "https://armarinhomanaos.com.br/api/"
+        const val VIDEO_PADRAO = "https://armarinhomanaos.com.br/kiosk/descanso.mp4"
         fun normalizar(u: String): String {
             var s = u.trim()
             if (!s.startsWith("http")) s = "https://$s"

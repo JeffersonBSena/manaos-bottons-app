@@ -33,9 +33,12 @@ fun SetupScreen(aoPronto: () -> Unit, aoVoltar: (() -> Unit)?) {
     val prefs = Graph.prefs
     var url by remember { mutableStateOf(prefs.baseUrl) }
     var token by remember { mutableStateOf(prefs.token.orEmpty()) }
+    var video by remember { mutableStateOf(prefs.videoUrl) }
+    var descanso by remember { mutableStateOf(prefs.descansoSegundos.toString()) }
     var erro by remember { mutableStateOf<String?>(null) }
     var carregando by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val ctx = androidx.compose.ui.platform.LocalContext.current
 
     Scaffold(containerColor = AppColor.Bg, topBar = { BarraTopo("Configuração", aoVoltar) }) { pad ->
         Column(Modifier.padding(pad).fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -53,9 +56,15 @@ fun SetupScreen(aoPronto: () -> Unit, aoVoltar: (() -> Unit)?) {
                 AppTextField("Servidor *", url, { url = it }, placeholder = "https://armarinhomanaos.com.br", dica = "Endereço do site; o /api é acrescentado sozinho.")
                 AppTextField("Token do quiosque *", token, { token = it }, placeholder = "1|abc…", senha = true,
                     dica = "No servidor: php artisan kiosk:token \"Tablet 1\"", erro = erro)
+                AppTextField("Vídeo da tela de descanso", video, { video = it }, placeholder = "https://…/descanso.mp4",
+                    dica = "MP4 público (H.264). Vazio = animação da marca. É baixado uma vez e toca em loop sem som.")
+                AppTextField("Descanso após (segundos)", descanso, { descanso = it.filter { c -> c.isDigit() }.take(4) },
+                    tipo = androidx.compose.ui.text.input.KeyboardType.Number, placeholder = "90", dica = "Sem toque na Início por esse tempo → vídeo. 0 desliga. A tela nunca apaga com o app aberto.")
                 BotaoPrimario("Testar e salvar", carregando = carregando, habilitado = token.isNotBlank(), onClick = {
                     erro = null; carregando = true
                     prefs.baseUrl = url; prefs.token = token
+                    prefs.videoUrl = video; prefs.descansoSegundos = descanso.toIntOrNull() ?: 90
+                    br.com.armarinhomanaos.bottons.ui.DescansoVideo.arquivo(ctx).delete() // força baixar o vídeo novo
                     Graph.reconstruir()
                     scope.launch {
                         runCatching { Graph.api().produtos() }
