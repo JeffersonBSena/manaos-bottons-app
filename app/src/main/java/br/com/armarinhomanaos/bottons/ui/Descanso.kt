@@ -39,12 +39,21 @@ object DescansoVideo {
 
     fun arquivo(ctx: Context) = File(ctx.cacheDir, "descanso.mp4")
 
-    /** Garante o arquivo local; devolve-o ou null se não conseguiu. Chamar fora da main thread. */
+    /**
+     * Garante o arquivo local; devolve-o ou null se não conseguiu. Chamar fora da main thread.
+     * Faz um HEAD no servidor: se o tamanho mudou, baixa de novo (trocar o mp4 no servidor basta).
+     * Offline → usa o que tiver no cache.
+     */
     suspend fun garantir(ctx: Context, url: String): File? = withContext(Dispatchers.IO) {
         val f = arquivo(ctx)
-        val fresco = f.exists() && f.length() > 0 && System.currentTimeMillis() - f.lastModified() < 24L * 3600_000
-        if (fresco) return@withContext f
-        if (url.isBlank()) return@withContext f.takeIf { it.exists() && it.length() > 0 }
+        val temCache = f.exists() && f.length() > 0
+        if (url.isBlank()) return@withContext f.takeIf { temCache }
+        if (temCache) {
+            val remoto = runCatching {
+                http.newCall(Request.Builder().url(url).head().build()).execute().use { it.header("Content-Length")?.toLongOrNull() }
+            }.getOrNull()
+            if (remoto == null || remoto == f.length()) return@withContext f   // offline ou igual: mantém
+        }
         runCatching {
             http.newCall(Request.Builder().url(url).build()).execute().use { r ->
                 if (!r.isSuccessful) error("HTTP ${r.code}")
