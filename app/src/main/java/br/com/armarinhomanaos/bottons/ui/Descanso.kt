@@ -95,7 +95,7 @@ fun DescansoOverlay(visivel: Boolean, aoTocar: () -> Unit) {
         // Rodapé convidativo (sempre, por cima do vídeo)
         Column(
             Modifier.align(Alignment.BottomCenter).fillMaxWidth()
-                .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.75f))))
+                .background(Brush.verticalGradient(listOf(Color.Transparent, AppColor.NavyDark.copy(alpha = 0.72f))))
                 .padding(top = 80.dp, bottom = 56.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
