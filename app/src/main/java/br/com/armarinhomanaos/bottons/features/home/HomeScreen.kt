@@ -14,7 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -33,7 +33,6 @@ import androidx.compose.ui.unit.sp
 import br.com.armarinhomanaos.bottons.Graph
 import br.com.armarinhomanaos.bottons.R
 import br.com.armarinhomanaos.bottons.data.api.Kit
-import br.com.armarinhomanaos.bottons.data.api.Pedido
 import br.com.armarinhomanaos.bottons.data.api.Produto
 import br.com.armarinhomanaos.bottons.features.pedido.reais
 import br.com.armarinhomanaos.bottons.ui.*
@@ -41,7 +40,6 @@ import br.com.armarinhomanaos.bottons.ui.theme.AparenciaStore
 import br.com.armarinhomanaos.bottons.ui.theme.AppColor
 import coil.compose.AsyncImage
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 fun corStatus(status: String): Color = when (status) {
     "awaiting_art", "awaiting_approval" -> AppColor.FarolPend
@@ -57,30 +55,28 @@ fun corStatus(status: String): Color = when (status) {
  * já montado, e a fila de pedidos em andamento para o atendente.
  */
 @Composable
-fun HomeScreen(aoNovoPedido: () -> Unit, aoKit: (String) -> Unit, aoTamanho: (Int) -> Unit, aoAbrirPedido: (String) -> Unit, aoConfigurar: () -> Unit) {
+fun HomeScreen(aoNovoPedido: () -> Unit, aoKit: (String) -> Unit, aoTamanho: (Int) -> Unit, aoFila: () -> Unit, aoConfigurar: () -> Unit) {
     val ctx = LocalContext.current
-    var pedidos by remember { mutableStateOf<List<Pedido>>(emptyList()) }
+    var pedirPin by remember { mutableStateOf(false) }
     var produtos by remember { mutableStateOf<List<Produto>>(emptyList()) }
     var kits by remember { mutableStateOf<List<Kit>>(emptyList()) }
     var inspiracoes by remember { mutableStateOf<List<String>>(emptyList()) }
     var minimo by remember { mutableIntStateOf(5) }
     var erro by remember { mutableStateOf<String?>(null) }
-    var carregando by remember { mutableStateOf(true) }
-    val scope = rememberCoroutineScope()
 
     suspend fun carregar() {
-        runCatching { Graph.api().pedidos() }.onSuccess { pedidos = it; erro = null }.onFailure { erro = "Sem conexão com o servidor" }
-        carregando = false
+        runCatching { Graph.api().produtos() }
+            .onSuccess { produtos = it.products; kits = it.kits; inspiracoes = it.inspiracoes; minimo = it.min_units_per_order; erro = null }
+            .onFailure { erro = "Sem conexão com o servidor" }
     }
-    LaunchedEffect(Unit) {
-        runCatching { Graph.api().produtos() }.onSuccess { produtos = it.products; kits = it.kits; inspiracoes = it.inspiracoes; minimo = it.min_units_per_order }
-        while (true) { carregar(); delay(8000) }
-    }
+    LaunchedEffect(Unit) { while (true) { carregar(); delay(60_000) } }
+
+    if (pedirPin) PinDialog(aoFechar = { pedirPin = false }, aoOk = { pedirPin = false; aoFila() })
 
     Scaffold(containerColor = AppColor.Bg, topBar = {
         BarraTopo("Bottons Manaós", acoes = {
             IconButton(onClick = { AparenciaStore.proxima(ctx) }) { Icon(Icons.Filled.DarkMode, "Aparência") }
-            IconButton(onClick = { scope.launch { carregar() } }) { Icon(Icons.Filled.Refresh, "Atualizar") }
+            IconButton(onClick = { pedirPin = true }) { Icon(Icons.Filled.Lock, "Atendente") }
             IconButton(onClick = aoConfigurar) { Icon(Icons.Filled.Settings, "Configuração") }
         })
     }) { pad ->
@@ -139,28 +135,9 @@ fun HomeScreen(aoNovoPedido: () -> Unit, aoKit: (String) -> Unit, aoTamanho: (In
                 }
             }
 
-            // Fila do atendente
-            item { TituloSecao("Pedidos em andamento", Modifier.padding(horizontal = 16.dp), direita = if (pedidos.isNotEmpty()) "${pedidos.size}" else null) }
-            item {
-                Box(Modifier.padding(horizontal = 16.dp)) {
-                    when {
-                        carregando -> Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = AppColor.Primary) }
-                        erro != null -> CartaoSecao { Text(erro!!, color = AppColor.Red, modifier = Modifier.padding(16.dp)) }
-                        pedidos.isEmpty() -> CartaoSecao { Text("Nenhum pedido aberto. Toque em um tamanho, um kit ou em Novo pedido.", color = AppColor.TextSecond, modifier = Modifier.padding(16.dp)) }
-                        else -> CartaoSecao {
-                            pedidos.forEachIndexed { i, p ->
-                                if (i > 0) DivisorLinha()
-                                LinhaFarol(corStatus(p.status), p.customer.name ?: p.number, "${p.number} · ${p.units} bottons · ${p.total}${p.kit?.let { " · $it" } ?: ""}",
-                                    onClick = { aoAbrirPedido(p.number) }) {
-                                    Pilula(p.status_label, corStatus(p.status))
-                                    Icon(Icons.Filled.ChevronRight, null, tint = AppColor.TextMuted)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            item { RodapeSecao("Produção e entrega são controladas no painel web (admin).") }
+            if (erro != null) item { Box(Modifier.padding(horizontal = 16.dp)) { CartaoSecao { Text(erro!!, color = AppColor.Red, modifier = Modifier.padding(16.dp)) } } }
+            item { RodapeSecao("Acompanhe seu pedido pelo link que chega no WhatsApp. Pedido mínimo: $minimo bottons.", ) }
+
         }
     }
 }
@@ -212,4 +189,24 @@ private fun CartaoKit(k: Kit, onClick: () -> Unit) {
         }
         Text("${k.units} bottons · ${reais(k.price_cents / maxOf(1, k.units))} cada", fontSize = 12.sp, color = AppColor.TextSecond)
     }
+}
+
+/** PIN do atendente (Configuração) — a fila de pedidos não fica à vista dos clientes. */
+@Composable
+fun PinDialog(aoFechar: () -> Unit, aoOk: () -> Unit) {
+    var pin by remember { mutableStateOf("") }
+    var erro by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = aoFechar,
+        title = { Text("Área do atendente") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Digite o PIN para ver os pedidos em andamento.", fontSize = 14.sp, color = AppColor.TextSecond)
+                AppTextField("PIN *", pin, { pin = it.filter { c -> c.isDigit() }.take(6); erro = false },
+                    tipo = androidx.compose.ui.text.input.KeyboardType.NumberPassword, placeholder = "••••", erro = if (erro) "PIN incorreto" else null)
+            }
+        },
+        confirmButton = { TextButton(enabled = pin.length >= 4, onClick = { if (pin == Graph.prefs.pinAtendente) aoOk() else erro = true }) { Text("Entrar") } },
+        dismissButton = { TextButton(onClick = aoFechar) { Text("Cancelar") } },
+    )
 }

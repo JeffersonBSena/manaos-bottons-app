@@ -35,6 +35,7 @@ fun SetupScreen(aoPronto: () -> Unit, aoVoltar: (() -> Unit)?) {
     var token by remember { mutableStateOf(prefs.token.orEmpty()) }
     var video by remember { mutableStateOf(prefs.videoUrl) }
     var descanso by remember { mutableStateOf(prefs.descansoSegundos.toString()) }
+    var pin by remember { mutableStateOf(prefs.pinAtendente) }
     var erro by remember { mutableStateOf<String?>(null) }
     var carregando by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -53,6 +54,8 @@ fun SetupScreen(aoPronto: () -> Unit, aoVoltar: (() -> Unit)?) {
                 AppTextField("Servidor *", url, { url = it }, placeholder = "https://armarinhomanaos.com.br", dica = "Endereço do site; o /api é acrescentado sozinho.")
                 AppTextField("Token do quiosque *", token, { token = it }, placeholder = "1|abc…", senha = true,
                     dica = "No servidor: php artisan kiosk:token \"Tablet 1\"", erro = erro)
+                AppTextField("PIN do atendente *", pin, { pin = it.filter { c -> c.isDigit() }.take(6) }, tipo = androidx.compose.ui.text.input.KeyboardType.NumberPassword,
+                    placeholder = "1234", dica = "Libera a fila de pedidos (cadeado na Início). Os clientes não veem os pedidos dos outros.")
                 AppTextField("Vídeo da tela de descanso", video, { video = it }, placeholder = "https://…/descanso.mp4",
                     dica = "MP4 público (H.264). Vazio = animação da marca. É baixado uma vez e toca em loop sem som.")
                 AppTextField("Descanso após (segundos)", descanso, { descanso = it.filter { c -> c.isDigit() }.take(4) },
@@ -61,6 +64,7 @@ fun SetupScreen(aoPronto: () -> Unit, aoVoltar: (() -> Unit)?) {
                     erro = null; carregando = true
                     prefs.baseUrl = url; prefs.token = token
                     prefs.videoUrl = video; prefs.descansoSegundos = descanso.toIntOrNull() ?: 90
+                    prefs.pinAtendente = pin
                     br.com.armarinhomanaos.bottons.ui.DescansoVideo.arquivo(ctx).delete() // força baixar o vídeo novo
                     Graph.reconstruir()
                     scope.launch {

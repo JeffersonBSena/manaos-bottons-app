@@ -51,10 +51,11 @@ fun AppNav() {
                     aoNovoPedido = { nav.navigate("novo") },
                     aoKit = { id -> nav.navigate("novo?kit=$id") },
                     aoTamanho = { id -> nav.navigate("novo?produto=$id") },
-                    aoAbrirPedido = { n -> nav.navigate("pedido/$n") },
+                    aoFila = { nav.navigate("fila") },
                     aoConfigurar = { nav.navigate("setup") },
                 )
             }
+            composable("fila") { br.com.armarinhomanaos.bottons.features.home.FilaScreen(aoVoltar = { nav.popBackStack() }, aoAbrirPedido = { n -> nav.navigate("pedido/$n") }) }
             composable(
                 "novo?kit={kit}&produto={produto}",
                 arguments = listOf(

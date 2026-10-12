@@ -34,6 +34,11 @@ class Prefs(private val ctx: Context) {
         get() = simples.getString("video_url", VIDEO_PADRAO) ?: VIDEO_PADRAO
         set(v) = simples.edit().putString("video_url", v.trim()).apply()
 
+    /** PIN de 4 dígitos que libera a fila de pedidos (atendente). */
+    var pinAtendente: String
+        get() = seguro.getString("pin", "1234") ?: "1234"
+        set(v) = seguro.edit().putString("pin", v.filter { it.isDigit() }.take(6).ifBlank { "1234" }).apply()
+
     /** Segundos sem toque na Início até a tela de descanso. 0 = desligada. */
     var descansoSegundos: Int
         get() = simples.getInt("descanso_s", 90)
