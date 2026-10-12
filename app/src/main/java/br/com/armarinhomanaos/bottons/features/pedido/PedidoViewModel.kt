@@ -45,7 +45,7 @@ class PedidoViewModel(private val numero: String) : ViewModel() {
                 recarregar()
                 val p = _s.value.pedido
                 val rapido = p == null || p.items.any { it.art?.processando == true } || p.aguardandoPix || p.emAprovacao
-                delay(if (rapido) 2500 else 8000)
+                delay(if (p?.items?.any { it.art?.processando == true } == true) 1200 else if (rapido) 2500 else 8000)
             }
         }
     }
@@ -70,6 +70,26 @@ class PedidoViewModel(private val numero: String) : ViewModel() {
             _s.update { it.copy(enviandoItem = null) }
             recarregar()
         }
+    }
+
+    /** Repete a arte deste item em todos os outros itens ainda sem foto. */
+    fun copiarParaOutros(item: Item) {
+        viewModelScope.launch {
+            _s.update { it.copy(ocupado = true, erro = null) }
+            runCatching { Graph.api().copiarArte(numero, item.id) }
+                .onSuccess { r -> if (r.isSuccessful && r.body() != null) _s.update { it.copy(pedido = r.body()) } else _s.update { it.copy(erro = Network.erro(r).message) } }
+                .onFailure { e -> _s.update { it.copy(erro = "Falha: ${e.message?.take(60)}") } }
+            _s.update { it.copy(ocupado = false) }
+        }
+    }
+
+    /** Original reduzido (1200 px) para o ajuste ao vivo. */
+    suspend fun carregarOriginal(item: Item): android.graphics.Bitmap? = withContext(Dispatchers.IO) {
+        runCatching {
+            val r = Graph.api().original(numero, item.id)
+            val bytes = r.body()?.bytes() ?: return@runCatching null
+            android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+        }.getOrNull()
     }
 
     fun ajustar(item: Item, p: Params) {

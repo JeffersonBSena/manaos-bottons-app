@@ -14,11 +14,11 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 
 /**
- * Lê a foto (câmera/galeria), corrige EXIF e manda como JPEG q92 com lado maior até 3000 px —
- * botton de 58 mm precisa de ~850 px no diâmetro de corte a 300 DPI, então não reduz muito.
+ * Lê a foto (câmera/galeria), corrige EXIF e manda como JPEG q88 com lado maior até 2400 px —
+ * o 58 mm precisa de ~850 px no diâmetro de corte a 300 DPI; 2400 sobra e o envio fica 2–3× menor.
  */
 object Imagem {
-    fun parteMultipart(ctx: Context, uri: Uri, maxLado: Int = 3000): MultipartBody.Part? {
+    fun parteMultipart(ctx: Context, uri: Uri, maxLado: Int = 2400): MultipartBody.Part? {
         val jpeg = comprimir(ctx, uri, maxLado) ?: return null
         return MultipartBody.Part.createFormData("file", "foto.jpg", jpeg.toRequestBody("image/jpeg".toMediaType()))
     }
@@ -41,7 +41,7 @@ object Imagem {
             val e = maxLado.toFloat() / maior
             Bitmap.createScaledBitmap(rot, (rot.width * e).toInt(), (rot.height * e).toInt(), true)
         } else rot
-        return ByteArrayOutputStream().use { out -> bmp.compress(Bitmap.CompressFormat.JPEG, 92, out); out.toByteArray() }
+        return ByteArrayOutputStream().use { out -> bmp.compress(Bitmap.CompressFormat.JPEG, 88, out); out.toByteArray() }
     }
 
     private fun orientar(ctx: Context, uri: Uri, bmp: Bitmap): Bitmap {

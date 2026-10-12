@@ -7,7 +7,19 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.RotateLeft
+import androidx.compose.material.icons.filled.RotateRight
+import androidx.compose.material.icons.filled.ZoomIn
+import androidx.compose.material.icons.filled.ZoomOut
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.*
@@ -49,7 +61,7 @@ fun PedidoScreen(numero: String, aoVoltar: () -> Unit, aoPix: () -> Unit) {
     val p = s.pedido
 
     SeletorFotoDialog(visivel = itemFoto != null, aoFechar = { itemFoto = null }, aoEscolher = { uri -> itemAlvo?.let { vm.enviarArte(ctx, it, uri) } })
-    itemAjuste?.let { item -> AjusteDialog(item, ocupado = s.ocupado, aoFechar = { itemAjuste = null }, aoAplicar = { vm.ajustar(item, it); itemAjuste = null }) }
+    itemAjuste?.let { item -> AjusteDialog(item, vm = vm, ocupado = s.ocupado, aoFechar = { itemAjuste = null }, aoAplicar = { vm.ajustar(item, it); itemAjuste = null }) }
 
     if (s.pedirCpf) AlertDialog(
         onDismissRequest = vm::fecharCpf, title = { Text("CPF para o Pix") },
@@ -116,21 +128,26 @@ fun PedidoScreen(numero: String, aoVoltar: () -> Unit, aoPix: () -> Unit) {
                 }
             }
 
-            TituloSecao("Itens")
+            val semFoto = p.items.count { it.art == null }
+            TituloSecao("Bottons · uma foto em cada", direita = if (semFoto > 0) "$semFoto sem foto" else "todos com foto")
             CartaoSecao {
+                val porProduto = p.items.groupBy { it.product_id }
                 p.items.forEachIndexed { i, item ->
                     if (i > 0) DivisorLinha()
-                    LinhaItem(item, p, enviando = s.enviandoItem == item.id, aoFoto = { itemAlvo = item; itemFoto = item }, aoAjustar = { itemAjuste = item })
+                    val grupo = porProduto[item.product_id] ?: listOf(item)
+                    val rotulo = if (grupo.size > 1) "${item.name} · ${grupo.indexOf(item) + 1} de ${grupo.size}" else item.name
+                    LinhaItem(item, p, rotulo, outrosSemFoto = p.items.count { it.id != item.id && it.art == null }, enviando = s.enviandoItem == item.id, ocupado = s.ocupado,
+                        aoFoto = { itemAlvo = item; itemFoto = item }, aoAjustar = { itemAjuste = item }, aoCopiar = { vm.copiarParaOutros(item) })
                 }
             }
-            RodapeSecao("O círculo rosa é a borda do botton; o que está fora dele vira a dobra. Mantenha rostos dentro da linha tracejada.")
+            RodapeSecao("O círculo vermelho é a borda do botton; o que está fora dele vira a dobra. Rostos dentro da linha tracejada.")
             Spacer(Modifier.height(8.dp))
         }
     }
 }
 
 @Composable
-private fun LinhaItem(item: Item, p: Pedido, enviando: Boolean, aoFoto: () -> Unit, aoAjustar: () -> Unit) {
+private fun LinhaItem(item: Item, p: Pedido, rotulo: String, outrosSemFoto: Int, enviando: Boolean, ocupado: Boolean, aoFoto: () -> Unit, aoAjustar: () -> Unit, aoCopiar: () -> Unit) {
     val art = item.art
     Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
         Box(Modifier.size(96.dp).clip(CircleShape).background(AppColor.GraySoft).border(2.dp, if (art?.pronta == true) AppColor.Primary else AppColor.Border, CircleShape), contentAlignment = Alignment.Center) {
@@ -140,60 +157,122 @@ private fun LinhaItem(item: Item, p: Pedido, enviando: Boolean, aoFoto: () -> Un
                 else -> Icon(Icons.Filled.PhotoCamera, null, tint = AppColor.TextMuted, modifier = Modifier.size(32.dp))
             }
         }
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("${item.name} × ${item.qty}", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = AppColor.TextPrimary)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(rotulo, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = AppColor.TextPrimary)
             when {
                 enviando -> Text("Enviando foto…", fontSize = 13.sp, color = AppColor.TextSecond)
                 art == null -> Text("Sem foto ainda", fontSize = 13.sp, color = AppColor.FarolPend)
                 art.processando -> Text("Gerando o preview…", fontSize = 13.sp, color = AppColor.TextSecond)
                 art.status == "failed" -> Text(art.error ?: "Não deu para ler a imagem", fontSize = 13.sp, color = AppColor.Red)
                 else -> {
-                    Text("Arte pronta · ${art.dpi_effective ?: 0} DPI", fontSize = 13.sp, color = AppColor.Green)
+                    Text("Foto pronta · ${art.dpi_effective ?: 0} DPI", fontSize = 13.sp, color = AppColor.Green)
                     art.quality_warning?.let { Text("⚠️ $it", fontSize = 12.sp, color = AppColor.Amber) }
                 }
             }
-            if (!p.pago) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilledTonalButton(onClick = aoFoto, enabled = !enviando, colors = ButtonDefaults.filledTonalButtonColors(containerColor = AppColor.PrimarySoft, contentColor = AppColor.Primary)) {
-                    Icon(Icons.Filled.PhotoCamera, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text(if (art == null) "Enviar foto" else "Trocar")
+            if (!p.pago) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilledTonalButton(onClick = aoFoto, enabled = !enviando, colors = ButtonDefaults.filledTonalButtonColors(containerColor = AppColor.PrimarySoft, contentColor = AppColor.Primary)) {
+                        Icon(Icons.Filled.PhotoCamera, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text(if (art == null) "Enviar foto" else "Trocar foto")
+                    }
+                    if (art?.pronta == true && outrosSemFoto > 0) FilledTonalButton(onClick = aoCopiar, enabled = !ocupado, colors = ButtonDefaults.filledTonalButtonColors(containerColor = AppColor.GreenSoft, contentColor = AppColor.Green)) {
+                        Icon(Icons.Filled.ContentCopy, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Usar nos outros $outrosSemFoto")
+                    }
                 }
-                if (art?.pronta == true) FilledTonalButton(onClick = aoAjustar, colors = ButtonDefaults.filledTonalButtonColors(containerColor = AppColor.GraySoft, contentColor = AppColor.TextPrimary)) {
-                    Icon(Icons.Filled.Tune, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Ajustar")
+                if (art?.pronta == true) TextButton(onClick = aoAjustar, contentPadding = PaddingValues(0.dp)) {
+                    Icon(Icons.Filled.Tune, null, Modifier.size(16.dp), tint = AppColor.Primary); Spacer(Modifier.width(6.dp))
+                    Text("Não ficou centralizado? Ajuste aqui", color = AppColor.Primary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
     }
 }
 
-/** Zoom / posição / rotação — o servidor regera preview e print com os mesmos parâmetros. */
+/**
+ * Ajuste ao vivo: desenha o original (1200 px, vindo do servidor) com a MESMA regra do ArtRenderer
+ * (cover × zoom, deslocamento em fração do raio de corte, rotação horária) e guias de corte/borda/área segura.
+ * Setas e botões mudam os parâmetros na hora; "Aplicar" manda ao servidor, que regera preview e print.
+ */
 @Composable
-private fun AjusteDialog(item: Item, ocupado: Boolean, aoFechar: () -> Unit, aoAplicar: (Params) -> Unit) {
+private fun AjusteDialog(item: Item, vm: PedidoViewModel, ocupado: Boolean, aoFechar: () -> Unit, aoAplicar: (Params) -> Unit) {
     val ini = item.art?.params ?: Params()
     var zoom by remember { mutableFloatStateOf(ini.zoom) }
     var x by remember { mutableFloatStateOf(ini.x) }
     var y by remember { mutableFloatStateOf(ini.y) }
     var rot by remember { mutableFloatStateOf(ini.rotation) }
+    var bmp by remember { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
+    var falhou by remember { mutableStateOf(false) }
+    LaunchedEffect(item.id) { bmp = vm.carregarOriginal(item)?.asImageBitmap(); if (bmp == null) falhou = true }
+    val spec = item.spec
+    val passo = 0.06f
+
     AlertDialog(
-        onDismissRequest = aoFechar, title = { Text("Ajustar ${item.name}") },
+        onDismissRequest = aoFechar,
+        title = { Text("Ajuste a foto · ${item.name}") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                item.art?.preview_url?.let { AsyncImage(it, null, Modifier.size(160.dp).clip(CircleShape).align(Alignment.CenterHorizontally), contentScale = ContentScale.Crop) }
-                Text("Preview atual. Depois de aplicar, o novo preview leva alguns segundos.", fontSize = 12.sp, color = AppColor.TextSecond)
-                Controle("Zoom ${"%.1f".format(zoom)}×", zoom, 1f..3f) { zoom = it }
-                Controle("Horizontal", x, -1f..1f) { x = it }
-                Controle("Vertical", y, -1f..1f) { y = it }
-                Controle("Rotação ${rot.toInt()}°", rot, -180f..180f) { rot = it }
-                TextButton(onClick = { zoom = 1f; x = 0f; y = 0f; rot = 0f }) { Text("Centralizar") }
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Box(Modifier.size(300.dp), contentAlignment = Alignment.Center) {
+                    if (bmp == null && !falhou) CircularProgressIndicator(color = AppColor.Primary)
+                    else PreviewAoVivo(bmp, Params(zoom, x, y, rot), spec, 300.dp)
+                }
+                Text("Vermelho = borda do botton · tracejado = área segura", fontSize = 12.sp, color = AppColor.TextSecond)
+                // D-pad
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        BotaoSeta(Icons.Filled.KeyboardArrowUp, "cima") { y -= passo }
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            BotaoSeta(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "esquerda") { x -= passo }
+                            FilledTonalIconButton(onClick = { x = 0f; y = 0f; zoom = 1f; rot = 0f }, modifier = Modifier.size(52.dp), colors = IconButtonDefaults.filledTonalIconButtonColors(containerColor = AppColor.GraySoft)) { Icon(Icons.Filled.CenterFocusStrong, "centralizar", tint = AppColor.TextPrimary) }
+                            BotaoSeta(Icons.AutoMirrored.Filled.KeyboardArrowRight, "direita") { x += passo }
+                        }
+                        BotaoSeta(Icons.Filled.KeyboardArrowDown, "baixo") { y += passo }
+                    }
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            BotaoSeta(Icons.Filled.ZoomOut, "menos zoom") { zoom = (zoom - 0.1f).coerceAtLeast(1f) }
+                            Text("${"%.1f".format(zoom)}×", fontSize = 13.sp, color = AppColor.TextSecond, modifier = Modifier.width(40.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                            BotaoSeta(Icons.Filled.ZoomIn, "mais zoom") { zoom = (zoom + 0.1f).coerceAtMost(4f) }
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            BotaoSeta(Icons.Filled.RotateLeft, "girar à esquerda") { rot -= 5f }
+                            Text("${rot.toInt()}°", fontSize = 13.sp, color = AppColor.TextSecond, modifier = Modifier.width(40.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                            BotaoSeta(Icons.Filled.RotateRight, "girar à direita") { rot += 5f }
+                        }
+                    }
+                }
             }
         },
-        confirmButton = { TextButton(enabled = !ocupado, onClick = { aoAplicar(Params(zoom, x, y, rot)) }) { Text("Aplicar") } },
-        dismissButton = { TextButton(onClick = aoFechar) { Text("Fechar") } },
+        confirmButton = { Button(enabled = !ocupado, onClick = { aoAplicar(Params(zoom, x.coerceIn(-1f, 1f), y.coerceIn(-1f, 1f), rot)) }, colors = ButtonDefaults.buttonColors(containerColor = AppColor.Primary)) { Text("Aplicar") } },
+        dismissButton = { TextButton(onClick = aoFechar) { Text("Cancelar") } },
     )
 }
 
 @Composable
-private fun Controle(rotulo: String, v: Float, faixa: ClosedFloatingPointRange<Float>, onChange: (Float) -> Unit) {
-    Column {
-        Text(rotulo, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = AppColor.TextPrimary)
-        Slider(value = v, onValueChange = onChange, valueRange = faixa, colors = SliderDefaults.colors(thumbColor = AppColor.Primary, activeTrackColor = AppColor.Primary))
+private fun BotaoSeta(icone: androidx.compose.ui.graphics.vector.ImageVector, desc: String, onClick: () -> Unit) {
+    FilledTonalIconButton(onClick = onClick, modifier = Modifier.size(52.dp), colors = IconButtonDefaults.filledTonalIconButtonColors(containerColor = AppColor.PrimarySoft, contentColor = AppColor.Primary)) { Icon(icone, desc) }
+}
+
+@Composable
+private fun PreviewAoVivo(bmp: androidx.compose.ui.graphics.ImageBitmap?, p: Params, spec: br.com.armarinhomanaos.bottons.data.api.Spec?, tam: androidx.compose.ui.unit.Dp) {
+    androidx.compose.foundation.Canvas(Modifier.size(tam).clip(CircleShape).background(Color.White)) {
+        val n = size.minDimension; val c = n / 2f
+        if (bmp != null) {
+            val w = bmp.width; val h = bmp.height
+            val escala = n / minOf(w, h) * p.zoom
+            val dw = (w * escala).toInt(); val dh = (h * escala).toInt()
+            withTransform({
+                translate(c + p.x * c, c + p.y * c)
+                rotate(p.rotation, pivot = androidx.compose.ui.geometry.Offset.Zero)
+            }) {
+                drawImage(bmp, dstOffset = androidx.compose.ui.unit.IntOffset(-dw / 2, -dh / 2), dstSize = androidx.compose.ui.unit.IntSize(dw, dh))
+            }
+        }
+        val corte = spec?.corte_mm?.takeIf { it > 0 } ?: 57
+        val rb = c * (spec?.botton_mm ?: 44) / corte.toFloat()
+        val rs = c * (spec?.seguro_mm ?: 40) / corte.toFloat()
+        // esmaece fora do botton
+        drawCircle(Color.White.copy(alpha = 0.45f), radius = c, style = androidx.compose.ui.graphics.drawscope.Stroke(width = (c - rb) * 2f))
+        drawCircle(Color(0xFF808080), radius = c - 1f, style = androidx.compose.ui.graphics.drawscope.Stroke(2f))
+        drawCircle(AppColor.Primary, radius = rb, style = androidx.compose.ui.graphics.drawscope.Stroke(4f))
+        drawCircle(Color.White, radius = rs, style = androidx.compose.ui.graphics.drawscope.Stroke(2f, pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(12f, 10f))))
     }
 }

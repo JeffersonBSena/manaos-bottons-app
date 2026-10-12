@@ -18,6 +18,12 @@ interface BottonsApi {
     @PATCH("orders/{n}/items/{item}/art")
     suspend fun ajustarArte(@Path("n") n: String, @Path("item") item: Int, @Body p: Params): Response<AjusteResp>
 
+    @POST("orders/{n}/items/{item}/art/copy")
+    suspend fun copiarArte(@Path("n") n: String, @Path("item") item: Int, @Body b: CopiarBody = CopiarBody()): Response<Pedido>
+
+    @GET("orders/{n}/items/{item}/original")
+    suspend fun original(@Path("n") n: String, @Path("item") item: Int): Response<okhttp3.ResponseBody>
+
     @POST("orders/{n}/approve") suspend fun aprovar(@Path("n") n: String, @Body b: AprovarBody): Response<AprovarResp>
     @POST("orders/{n}/pay/manual") suspend fun pagarManual(@Path("n") n: String, @Body b: PagarManualBody): Response<Pedido>
     @POST("orders/{n}/cancel") suspend fun cancelar(@Path("n") n: String): Response<Pedido>

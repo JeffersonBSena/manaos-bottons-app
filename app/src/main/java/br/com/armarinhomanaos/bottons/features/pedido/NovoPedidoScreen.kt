@@ -116,7 +116,7 @@ fun NovoPedidoScreen(aoVoltar: () -> Unit, aoCriado: (String) -> Unit, kitId: St
                 }
             }
             if (erro != null && produtos.isNotEmpty()) Text(erro!!, color = AppColor.Red, fontSize = 13.sp)
-            RodapeSecao("Cada linha é uma arte: se o cliente quiser fotos diferentes no mesmo tamanho, crie outro pedido ou peça mais de um tamanho.")
+            RodapeSecao("Cada botton terá o seu próprio espaço para foto. Pode ser uma foto diferente em cada um ou a mesma em todos.")
             Spacer(Modifier.height(8.dp))
         }
     }

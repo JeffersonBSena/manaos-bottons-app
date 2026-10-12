@@ -48,3 +48,4 @@ import kotlinx.serialization.Serializable
 @Serializable data class AjusteResp(val art: Arte)
 @Serializable data class AprovarResp(val order: Pedido, val pix: Pix? = null)
 @Serializable data class ErroApi(val message: String = "Erro", val needs_cpf: Boolean = false)
+@Serializable data class CopiarBody(val to: List<Int> = emptyList())
