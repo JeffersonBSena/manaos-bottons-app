@@ -15,9 +15,9 @@ import androidx.core.view.WindowCompat
 
 private val LightColors = lightColorScheme(
     primary = AppColor.Primary, onPrimary = Color.White,
-    primaryContainer = Color(0xFFFCE7F3), onPrimaryContainer = AppColor.Navy,
+    primaryContainer = Color(0xFFFBE9EA), onPrimaryContainer = AppColor.Navy,
     secondary = AppColor.Orange, onSecondary = Color.White,
-    secondaryContainer = Color(0xFFFEF3DF), onSecondaryContainer = AppColor.OrangeDark,
+    secondaryContainer = Color(0xFFFFF4D6), onSecondaryContainer = AppColor.Navy,
     background = Color(0xFFF2F2F7), onBackground = Color(0xFF1C2733),
     surface = Color(0xFFFFFFFF), onSurface = Color(0xFF1C2733),
     surfaceVariant = Color(0xFFF3F4F6), onSurfaceVariant = Color(0xFF5A6875),
@@ -28,9 +28,9 @@ private val LightColors = lightColorScheme(
 
 private val DarkColors = darkColorScheme(
     primary = AppColor.Primary, onPrimary = Color.White,
-    primaryContainer = Color(0xFF3B1F2E), onPrimaryContainer = Color(0xFFF9A8D4),
+    primaryContainer = Color(0xFF3B1F20), onPrimaryContainer = Color(0xFFF5B5B8),
     secondary = AppColor.Orange, onSecondary = Color.White,
-    secondaryContainer = Color(0xFF3E2E18), onSecondaryContainer = Color(0xFFFDE68A),
+    secondaryContainer = Color(0xFF3E3118), onSecondaryContainer = Color(0xFFFDE68A),
     background = Color(0xFF000000), onBackground = Color(0xFFF2F2F7),
     surface = Color(0xFF1C1C1E), onSurface = Color(0xFFF2F2F7),
     surfaceVariant = Color(0xFF2C2C2E), onSurfaceVariant = Color(0xFFAEAEB2),

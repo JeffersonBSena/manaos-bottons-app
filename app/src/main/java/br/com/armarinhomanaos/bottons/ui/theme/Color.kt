@@ -15,17 +15,21 @@ object AppColor {
         internal set
 
     // Marca
-    val Navy = Color(0xFF5B1A3A)        // vinho (cabeçalhos/gradientes)
-    val NavyDark = Color(0xFF3F1129)
-    val Primary = Color(0xFFDB2777)     // rosa — tint global
-    val PrimaryDark = Color(0xFFBE185D)
-    val Orange = Color(0xFFF59E0B)      // âmbar — CTA secundário/destaques
-    val OrangeDark = Color(0xFFD97706)
+    // Paleta do logo Manaós (cúpula do Teatro Amazonas): marrom, vermelho, amarelo, verde, azul
+    val Navy = Color(0xFF3A2416)        // marrom — cabeçalhos/gradientes
+    val NavyDark = Color(0xFF24150C)
+    val Primary = Color(0xFFB5262E)     // vermelho do logo — tint global
+    val PrimaryDark = Color(0xFF8E1B22)
+    val Orange = Color(0xFFF2B83A)      // amarelo do logo — CTA/destaques
+    val OrangeDark = Color(0xFFD9A020)
+    val LogoVerde = Color(0xFF2E7D32)
+    val LogoAzul = Color(0xFF2F7BD1)
+    val Creme = Color(0xFFF6EFE3)
 
-    val NavyTinta: Color get() = if (escuro) Color(0xFFF9A8D4) else Navy
+    val NavyTinta: Color get() = if (escuro) Color(0xFFF2B83A) else Navy
 
     // Semânticas
-    val Green = Color(0xFF2E9E5B)
+    val Green = Color(0xFF2E7D32)
     val Red = Color(0xFFD63027)
     val Amber = Color(0xFFE8A100)
     val Blue = Color(0xFF2563EB)
@@ -47,8 +51,8 @@ object AppColor {
     val BlueSoft: Color get() = if (escuro) Color(0xFF1E2A44) else Color(0xFFE3ECFB)
     val GraySoft: Color get() = if (escuro) Color(0xFF2C2C2E) else Color(0xFFEDEFF2)
     val GreenSoft: Color get() = if (escuro) Color(0xFF1F3628) else Color(0xFFE3F4EA)
-    val OrangeSoft: Color get() = if (escuro) Color(0xFF3E2E18) else Color(0xFFFEF3DF)
-    val PrimarySoft: Color get() = if (escuro) Color(0xFF3B1F2E) else Color(0xFFFCE7F3)
+    val OrangeSoft: Color get() = if (escuro) Color(0xFF3E3118) else Color(0xFFFFF4D6)
+    val PrimarySoft: Color get() = if (escuro) Color(0xFF3B1F20) else Color(0xFFFBE9EA)
 
     // Farol dos status do pedido
     val FarolOk = Color(0xFF34C759)

@@ -57,7 +57,7 @@ fun HomeScreen(aoNovoPedido: () -> Unit, aoAbrirPedido: (String) -> Unit, aoConf
     LaunchedEffect(Unit) { while (true) { carregar(); delay(8000) } }
 
     Scaffold(containerColor = AppColor.Bg, topBar = {
-        BarraTopo("Bottons", acoes = {
+        BarraTopo("Bottons Manaós", acoes = {
             IconButton(onClick = { AparenciaStore.proxima(ctx) }) { Icon(Icons.Filled.DarkMode, "Aparência: ${AparenciaStore.atual.titulo}") }
             IconButton(onClick = { scope.launch { carregar() } }) { Icon(Icons.Filled.Refresh, "Atualizar") }
             IconButton(onClick = aoConfigurar) { Icon(Icons.Filled.Settings, "Configuração") }
@@ -71,9 +71,14 @@ fun HomeScreen(aoNovoPedido: () -> Unit, aoAbrirPedido: (String) -> Unit, aoConf
                         .background(Brush.linearGradient(listOf(AppColor.Navy, AppColor.PrimaryDark))).padding(20.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
-                    Text("Seu botton na hora ✨", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                    Text("Escolha o tamanho, mande a foto e pague no Pix. Pronto em minutos.", fontSize = 14.sp, color = Color.White.copy(alpha = 0.85f))
-                    BotaoPrimario("Novo pedido", aoNovoPedido, cor = AppColor.Orange, icone = { Icon(Icons.Filled.Add, null, tint = Color.White) })
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(br.com.armarinhomanaos.bottons.R.drawable.logo_manaos), "Manaós", Modifier.size(96.dp))
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("Seu botton na hora ✨", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            Text("Escolha o tamanho, mande a foto e pague no Pix. Pronto em minutos.", fontSize = 14.sp, color = Color.White.copy(alpha = 0.85f))
+                        }
+                    }
+                    Button(onClick = aoNovoPedido, colors = ButtonDefaults.buttonColors(containerColor = AppColor.Orange, contentColor = AppColor.Navy), shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth().height(52.dp)) { Icon(Icons.Filled.Add, null); Spacer(Modifier.width(8.dp)); Text("Novo pedido", fontSize = 16.sp, fontWeight = FontWeight.SemiBold) }
                 }
             }
             item { TituloSecao("Pedidos em andamento", direita = if (pedidos.isNotEmpty()) "${pedidos.size}" else null) }

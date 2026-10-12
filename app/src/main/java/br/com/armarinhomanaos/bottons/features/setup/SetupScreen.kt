@@ -44,10 +44,7 @@ fun SetupScreen(aoPronto: () -> Unit, aoVoltar: (() -> Unit)?) {
         Column(Modifier.padding(pad).fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             // Marca (BrandMark do Campanha 2026)
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(Modifier.size(72.dp).clip(RoundedCornerShape(20.dp))
-                    .background(Brush.linearGradient(listOf(AppColor.Primary, AppColor.PrimaryDark))), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Filled.Verified, null, tint = Color.White, modifier = Modifier.size(40.dp))
-                }
+                androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(br.com.armarinhomanaos.bottons.R.drawable.logo_manaos), "Manaós", Modifier.size(140.dp))
                 Spacer(Modifier.height(10.dp))
                 Text("Bottons Manaós", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = AppColor.TextPrimary)
                 Text("Tablet do stand • conecte ao servidor", fontSize = 13.sp, color = AppColor.TextSecond)

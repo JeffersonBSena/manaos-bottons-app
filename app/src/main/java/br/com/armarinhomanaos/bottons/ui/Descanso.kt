@@ -102,7 +102,7 @@ fun DescansoOverlay(visivel: Boolean, aoTocar: () -> Unit) {
             Pulso { alpha ->
                 Text("Toque na tela para fazer seu botton", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = alpha))
             }
-            Text("Bottons Manaós • a partir de 5 unidades", fontSize = 15.sp, color = Color.White.copy(alpha = 0.8f))
+            Text("Armarinho Manaós • bottons a partir de 5 unidades", fontSize = 15.sp, color = Color.White.copy(alpha = 0.8f))
         }
     }
 }
@@ -132,13 +132,7 @@ private fun AnimacaoMarca() {
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(28.dp)) {
-            Box(Modifier.size((260 * esc).dp).background(Color.White, androidx.compose.foundation.shape.CircleShape), contentAlignment = Alignment.Center) {
-                Box(Modifier.size((200 * esc).dp).background(AppColor.Primary, androidx.compose.foundation.shape.CircleShape), contentAlignment = Alignment.Center) {
-                    Box(Modifier.size((130 * esc).dp).background(Color.White, androidx.compose.foundation.shape.CircleShape), contentAlignment = Alignment.Center) {
-                        Box(Modifier.size((70 * esc).dp).background(AppColor.Orange, androidx.compose.foundation.shape.CircleShape))
-                    }
-                }
-            }
+            androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(br.com.armarinhomanaos.bottons.R.drawable.logo_manaos), "Manaós", Modifier.size((300 * esc).dp))
             Text("Seu botton na hora ✨", fontSize = 44.sp, fontWeight = FontWeight.Bold, color = Color.White)
             Text("Sua foto, sua arte, seu time. Pronto em minutos.", fontSize = 20.sp, color = Color.White.copy(alpha = 0.85f))
         }
