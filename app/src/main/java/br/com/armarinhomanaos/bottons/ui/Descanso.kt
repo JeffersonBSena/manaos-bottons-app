@@ -92,18 +92,7 @@ fun DescansoOverlay(visivel: Boolean, aoTocar: () -> Unit) {
         } else {
             AnimacaoMarca()
         }
-        // Rodapé convidativo (sempre, por cima do vídeo)
-        Column(
-            Modifier.align(Alignment.BottomCenter).fillMaxWidth()
-                .background(Brush.verticalGradient(listOf(Color.Transparent, AppColor.NavyDark.copy(alpha = 0.72f))))
-                .padding(top = 80.dp, bottom = 56.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Pulso { alpha ->
-                Text("Toque na tela para fazer seu botton", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = alpha))
-            }
-            Text("Armarinho Manaós • bottons a partir de 5 unidades", fontSize = 15.sp, color = Color.White.copy(alpha = 0.8f))
-        }
+        // Sem rodapé: o vídeo já traz a chamada; qualquer toque fecha.
     }
 }
 
