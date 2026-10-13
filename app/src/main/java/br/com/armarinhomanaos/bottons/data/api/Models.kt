@@ -15,7 +15,7 @@ import kotlinx.serialization.Serializable
 @Serializable data class Arte(
     val id: Int, val status: String = "uploaded", val preview_url: String? = null, val params: Params = Params(),
     val width: Int? = null, val height: Int? = null, val dpi_effective: Int? = null, val quality_warning: String? = null,
-    val uploaded_via: String? = null, val error: String? = null,
+    val uploaded_via: String? = null, val error: String? = null, val fill: String? = null,
 ) {
     val pronta get() = status == "ready"
     val processando get() = status == "uploaded" || status == "processing"

@@ -169,7 +169,7 @@ private fun LinhaItem(item: Item, p: Pedido, rotulo: String, outrosSemFoto: Int,
                 art.processando -> Text("Gerando o preview…", fontSize = 13.sp, color = AppColor.TextSecond)
                 art.status == "failed" -> Text(art.error ?: "Não deu para ler a imagem", fontSize = 13.sp, color = AppColor.Red)
                 else -> {
-                    Text("Foto pronta · ${art.dpi_effective ?: 0} DPI", fontSize = 13.sp, color = AppColor.Green)
+                    Text("Foto pronta · ${art.dpi_effective ?: 0} DPI" + when (art.fill) { "ai" -> " · fundo completado por IA ✨"; "local" -> " · fundo completado"; else -> "" }, fontSize = 13.sp, color = AppColor.Green)
                     art.quality_warning?.let { Text("⚠️ $it", fontSize = 12.sp, color = AppColor.Amber) }
                 }
             }
